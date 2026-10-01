@@ -6,9 +6,10 @@ interface FooterProps {
   onNavigate: (page: string) => void;
   onOpenDonate: () => void;
   onOpenAidRequest: () => void;
+  showDonationActions?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenDonate, onOpenAidRequest }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenDonate, onOpenAidRequest, showDonationActions = true }) => {
   const { language, t } = useLanguageStore();
   const isUr = language === 'ur';
 
@@ -201,12 +202,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenDonate, onOpen
             >
               {isUr ? 'درخواست برائے امداد' : 'Victim Intake'}
             </button>
-            <button
+            {showDonationActions && <button
               onClick={onOpenDonate}
               className="hover:text-stone-300 cursor-pointer text-amber-300"
             >
               {isUr ? 'امداد دیں (روپے)' : 'Donate in PKR'}
-            </button>
+            </button>}
             <button 
               onClick={() => handlePageClick('ledger')}
               className="hover:text-stone-300 cursor-pointer"

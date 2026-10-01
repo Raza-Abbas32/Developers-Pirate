@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguageStore } from '../store/languageStore';
+import { useAuthStore } from '../store/authStore';
 import { 
   HeartHandshake, 
   Menu, 
@@ -14,7 +15,9 @@ import {
   Compass,
   Cpu,
   Languages,
-  Award
+  Award,
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -22,17 +25,21 @@ interface TopNavProps {
   onNavigate: (page: string) => void;
   onOpenDonate: (amount?: number) => void;
   onOpenAidRequest: () => void;
+  onOpenLogin?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({ 
   activePage, 
   onNavigate, 
   onOpenDonate, 
-  onOpenAidRequest 
+  onOpenAidRequest,
+  onOpenLogin
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { language, toggleLanguage, t } = useLanguageStore();
   const isUr = language === 'ur';
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
 
   // Close drawer on escape key
   useEffect(() => {
@@ -69,6 +76,8 @@ export const TopNav: React.FC<TopNavProps> = ({
     { id: 'ledger', label: t.nav.ledger, icon: FileText, desc: isUr ? '100% تصدیق شدہ عوامی کھاتہ' : '100% Verified PKR Audit' },
     { id: 'stories', label: t.nav.stories, icon: Users, desc: isUr ? 'دیہی متاثرین کے احوال' : 'Field Impact Chronicles' },
     { id: 'field-worker', label: t.nav.fieldApp, icon: Cpu, desc: isUr ? 'بائیومیٹرک فیس آئی ڈی اور پی ٹو پی' : 'Biometric Face ID & Anti-Duplication', isP2p: true }
+    ,{ id: 'admin', label: isUr ? 'ایڈمن کنٹرول روم' : 'Admin Control Room', icon: ShieldCheck, desc: isUr ? 'گھروں، ٹیموں اور تصدیق کا ریکارڈ' : 'Household verification & team dispatch' }
+    ,{ id: 'team', label: isUr ? 'ٹیم ورک اسپیس' : 'Team Workspace', icon: ClipboardList, desc: 'Upload surveys and aid provided' }
   ];
 
   return (
@@ -80,7 +89,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           
           {/* Brand Logo & Wordmark */}
           <div className="flex items-center gap-2">
-            <button
+            {user && <button
               onClick={() => handleNavClick('home')}
               className="text-xl sm:text-2xl font-serif font-bold tracking-tight text-[#0F3A5D] hover:opacity-90 transition-opacity flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
             >
@@ -89,7 +98,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               <span className="text-[11px] font-sans font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 ml-0.5">
                 {isUr ? 'پاکستان' : 'Pakistan'}
               </span>
-            </button>
+            </button>}
           </div>
 
           {/* Minimal Controls: Language Switcher + Donate PKR + Menu Button */}
@@ -105,14 +114,24 @@ export const TopNav: React.FC<TopNavProps> = ({
               <span className="font-bold">{t.nav.switchLang}</span>
             </button>
 
-            {/* Quick Donate Button */}
+            {/* Organization dashboard shortcut */}
             <button
-              onClick={() => onOpenDonate()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0F3A5D] hover:bg-[#0a273f] rounded-xl shadow-2xs hover:shadow-xs transition-all whitespace-nowrap cursor-pointer"
+              onClick={() => onNavigate(user?.role === 'admin' ? 'admin' : 'organization')}
+              className="hidden max-w-[180px] truncate rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-900 sm:inline-flex"
+              title="Open your scoped dashboard"
             >
-              <HeartHandshake className="w-3.5 h-3.5 text-amber-300" />
-              <span>{t.nav.donatePKR}</span>
+              {user?.organizationName}
             </button>
+
+            {(!user || (user.role !== 'admin' && user.organizationType !== 'private_donor')) && (
+              <button
+                onClick={() => onOpenDonate()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0F3A5D] hover:bg-[#0a273f] rounded-xl shadow-2xs hover:shadow-xs transition-all whitespace-nowrap cursor-pointer"
+              >
+                <HeartHandshake className="w-3.5 h-3.5 text-amber-300" />
+                <span>{t.nav.donatePKR}</span>
+              </button>
+            )}
 
             {/* Menu Drawer Toggle Button */}
             <button
@@ -123,6 +142,8 @@ export const TopNav: React.FC<TopNavProps> = ({
               {drawerOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4 text-[#0F3A5D]" />}
               <span>{t.nav.menu}</span>
             </button>
+
+            {user ? <button onClick={logout} className="hidden rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100 sm:inline-flex">Sign out</button> : <button onClick={onOpenLogin} className="hidden rounded-xl border border-[#0F3A5D] bg-white px-3 py-1.5 text-xs font-bold text-[#0F3A5D] hover:bg-stone-100 sm:inline-flex">Team login</button>}
 
           </div>
         </div>
@@ -223,7 +244,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                   {t.nav.menuTitle}
                 </div>
 
-                {navItems.map((item) => {
+                {navItems.filter(item => (item.id !== 'admin' || user?.role === 'admin') && (item.id !== 'team' || user?.role === 'team') && (item.id !== 'field-worker' || user?.organizationType !== 'private_donor')).map((item) => {
                   const Icon = item.icon;
                   const isActive = activePage === item.id;
                   return (

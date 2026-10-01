@@ -31,6 +31,7 @@ export const FieldWorkerTerminal: React.FC = () => {
     syncState,
     syncProgress,
     beneficiaries,
+    visibleBeneficiaries,
     loadBeneficiariesFromDB,
     duplicateAlert,
     clearDuplicateAlert,
@@ -457,7 +458,7 @@ export const FieldWorkerTerminal: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#0F3A5D]" />
                 <h4 className="text-sm font-bold text-stone-900">
-                  Local IndexedDB Store ({beneficiaries.length})
+                  My Team Records ({visibleBeneficiaries.length})
                 </h4>
               </div>
 
@@ -470,14 +471,14 @@ export const FieldWorkerTerminal: React.FC = () => {
               </button>
             </div>
 
-            {beneficiaries.length === 0 ? (
+            {visibleBeneficiaries.length === 0 ? (
               <div className="py-8 text-center text-xs text-stone-500 space-y-1">
                 <div>No offline records stored yet.</div>
                 <div className="text-[11px] text-stone-400">Fill the form on the left to register a beneficiary offline.</div>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                {beneficiaries.map((rec) => (
+                {visibleBeneficiaries.map((rec) => (
                   <div
                     key={rec.recordId}
                     className="p-3 bg-[#FAF8F5] rounded-xl border border-stone-200 text-xs space-y-2"

@@ -3,6 +3,7 @@
 
 import { offlineDb, OfflineBeneficiaryRecord } from './offlineDb';
 import { verifyBlockIntegrity } from './crypto';
+import { isReliefBackendConfigured, reliefApi } from '../backend/reliefApi';
 
 export type SyncState = 'idle' | 'detecting_connection' | 'syncing' | 'completed' | 'error';
 
@@ -126,8 +127,12 @@ class BackgroundCloudSyncEngine {
           continue;
         }
 
-        // 2. Transmit to Cloud Database Ledger (Simulated high-availability REST endpoint)
-        await new Promise(r => setTimeout(r, 200)); // Simulate HTTP latency
+        // Use the real API when configured; retain the offline demo fallback otherwise.
+        if (isReliefBackendConfigured) {
+          await reliefApi.syncBeneficiary(record);
+        } else {
+          await new Promise(r => setTimeout(r, 200));
+        }
         reconciledIds.push(record.recordId);
       }
 

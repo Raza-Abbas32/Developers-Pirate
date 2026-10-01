@@ -11,13 +11,24 @@ import { FieldWorkerPage } from './pages/FieldWorkerPage';
 import { EmergencyAidRequestModal } from './components/EmergencyAidRequestModal';
 import { DonationDrawer } from './components/DonationDrawer';
 import { Footer } from './components/Footer';
+import { AdminPage } from './pages/AdminPage';
+import { LoginPage } from './pages/LoginPage';
+import { OrganizationDashboard } from './pages/OrganizationDashboard';
+import { DonorDashboard } from './pages/DonorDashboard';
+import { TeamDashboard } from './pages/TeamDashboard';
+import { useAuthStore } from './store/authStore';
 
 export const App: React.FC = () => {
+  const user = useAuthStore(state => state.user);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [activePage, setActivePage] = useState<string>('home');
   const [donateModalOpen, setDonateModalOpen] = useState(false);
   const [aidRequestModalOpen, setAidRequestModalOpen] = useState(false);
   const [donationAmount, setDonationAmount] = useState<number>(65000);
   const [targetedZone, setTargetedZone] = useState<string | undefined>(undefined);
+
+  if (loginOpen && !user) return <LoginPage onContinuePublic={() => setLoginOpen(false)} />;
+  const showDonationActions = !user || (user.role !== 'admin' && user.organizationType !== 'private_donor');
 
   const handleNavigate = (page: string) => {
     setActivePage(page);
@@ -55,6 +66,7 @@ export const App: React.FC = () => {
         onNavigate={handleNavigate}
         onOpenDonate={() => handleOpenDonate()}
         onOpenAidRequest={() => setAidRequestModalOpen(true)}
+        onOpenLogin={() => setLoginOpen(true)}
       />
 
       {/* Dynamic Page Content */}
@@ -64,6 +76,7 @@ export const App: React.FC = () => {
             onNavigate={handleNavigate}
             onOpenDonate={handleOpenDonate}
             onOpenAidRequest={() => setAidRequestModalOpen(true)}
+            showDonationActions={showDonationActions}
           />
         )}
 
@@ -77,6 +90,20 @@ export const App: React.FC = () => {
           <FieldWorkerPage
             onBackToHome={() => handleNavigate('home')}
           />
+        )}
+
+        {activePage === 'admin' && (
+          user?.role === 'admin' && <AdminPage onBackToHome={() => handleNavigate('home')} />
+        )}
+
+        {activePage === 'organization' && user?.role === 'partner' && (
+          user.organizationType === 'private_donor'
+            ? <DonorDashboard user={user} onBackToHome={() => handleNavigate('home')} />
+            : <OrganizationDashboard user={user} onBackToHome={() => handleNavigate('home')} />
+        )}
+
+        {activePage === 'team' && user?.role === 'team' && (
+          <TeamDashboard user={user} onBackToHome={() => handleNavigate('home')} />
         )}
 
         {activePage === 'zones' && (
@@ -111,6 +138,7 @@ export const App: React.FC = () => {
         onNavigate={handleNavigate}
         onOpenDonate={() => handleOpenDonate()}
         onOpenAidRequest={() => setAidRequestModalOpen(true)}
+        showDonationActions={showDonationActions}
       />
 
       {/* Interactive Emergency Aid Intake Portal Modal */}

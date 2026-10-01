@@ -7,6 +7,8 @@ import { createTamperProofBlock, verifyBlockIntegrity } from '../engine/crypto';
 import { checkDuplicateFace } from '../engine/biometrics';
 import { p2pMesh } from '../engine/p2pSync';
 import { cloudSync, SyncState } from '../engine/cloudSync';
+import { HouseholdStatus, ReliefOrganizationType, VerificationStatus } from '../types/relief';
+import { isReliefBackendConfigured, reliefApi } from '../backend/reliefApi';
 
 export interface FieldWorkerProfile {
   id: string;
@@ -14,6 +16,10 @@ export interface FieldWorkerProfile {
   org: string;
   assignedBasin: string;
   deviceFingerprint: string;
+  organizationType: ReliefOrganizationType;
+  organizationId: string;
+  teamId: string;
+  areaIds: string[];
 }
 
 export const FIELD_WORKERS: FieldWorkerProfile[] = [
@@ -22,14 +28,22 @@ export const FIELD_WORKERS: FieldWorkerProfile[] = [
     name: 'Eng. Zulfiqar Jamali',
     org: 'Pakistan Red Crescent Society (PRCS)',
     assignedBasin: 'Dadu & Mehar Basin (Sindh)',
-    deviceFingerprint: 'DEV-TAB-SINDH-082'
+    deviceFingerprint: 'DEV-TAB-SINDH-082',
+    organizationType: 'ngo',
+    organizationId: 'prcs',
+    teamId: 'team-dadu-a',
+    areaIds: ['dadu-mehar']
   },
   {
     id: 'SCOUT-114',
     name: 'Dr. Tariq Gorchani',
     org: 'PDMA Relief Mobile Desk',
     assignedBasin: 'Dadu & Mehar Basin (Sindh)',
-    deviceFingerprint: 'DEV-TAB-PDMA-114'
+    deviceFingerprint: 'DEV-TAB-PDMA-114',
+    organizationType: 'government',
+    organizationId: 'pdma-sindh',
+    teamId: 'team-dadu-b',
+    areaIds: ['dadu-mehar']
   }
 ];
 
@@ -54,6 +68,7 @@ interface FieldWorkerState {
 
   // Stored Records
   beneficiaries: OfflineBeneficiaryRecord[];
+  visibleBeneficiaries: OfflineBeneficiaryRecord[];
   loadBeneficiariesFromDB: () => Promise<void>;
 
   // Anti-Duplication Alert
@@ -93,6 +108,7 @@ interface FieldWorkerState {
   }) => Promise<{ success: boolean; recordId?: string; error?: string }>;
 
   triggerCloudReconciliation: () => Promise<void>;
+  updateVerificationStatus: (recordId: string, householdStatus: HouseholdStatus, verificationStatus: VerificationStatus) => Promise<void>;
   verifyRecordIntegrity: (recordId: string) => Promise<{ isValid: boolean; details: string }>;
   resetTestDatabase: () => Promise<void>;
 }
@@ -117,7 +133,10 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
   return {
     activeWorker: FIELD_WORKERS[0],
     setActiveWorker: (worker) => {
-      set({ activeWorker: worker, duplicateAlert: null });
+      const visibleBeneficiaries = get().beneficiaries.filter(record =>
+        record.organizationId === worker.organizationId && record.teamId === worker.teamId
+      );
+      set({ activeWorker: worker, visibleBeneficiaries, duplicateAlert: null });
       get().addLog('P2P_MESH', `Switched active worker device to: ${worker.name} (${worker.org})`, 'info');
     },
 
@@ -138,6 +157,7 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
     syncState: 'idle',
     syncProgress: null,
     beneficiaries: [],
+    visibleBeneficiaries: [],
     duplicateAlert: null,
     clearDuplicateAlert: () => set({ duplicateAlert: null }),
 
@@ -174,7 +194,13 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
     loadBeneficiariesFromDB: async () => {
       try {
         const records = await offlineDb.getAllBeneficiaries();
-        set({ beneficiaries: records });
+        const worker = get().activeWorker;
+        set({
+          beneficiaries: records,
+          visibleBeneficiaries: records.filter(record =>
+            record.organizationId === worker.organizationId && record.teamId === worker.teamId
+          )
+        });
       } catch (err) {
         console.error('Error loading beneficiaries from IndexedDB:', err);
       }
@@ -289,9 +315,15 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
         blockIndex,
         blockHash: tamperBlock.blockHash,
         previousBlockHash,
-        syncStatus: state.isSimulatedOffline ? 'pending_cloud_sync' : 'synced',
+        syncStatus: 'pending_cloud_sync',
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        organizationType: worker.organizationType,
+        organizationId: worker.organizationId,
+        teamId: worker.teamId,
+        areaId: `${params.district.toLowerCase()}-${params.tehsil.toLowerCase()}`,
+        householdStatus: 'unknown',
+        verificationStatus: 'pending'
       };
 
       await offlineDb.saveBeneficiary(record);
@@ -304,6 +336,9 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
 
       // Reload database
       await state.loadBeneficiariesFromDB();
+      if (!state.isSimulatedOffline) {
+        await state.triggerCloudReconciliation();
+      }
 
       return { success: true, recordId };
     },
@@ -323,6 +358,24 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
       } catch (err: any) {
         state.addLog('CLOUD_SYNC', `Sync failed: ${err.message}`, 'error');
       }
+    },
+
+    updateVerificationStatus: async (recordId, householdStatus, verificationStatus) => {
+      const record = get().beneficiaries.find(item => item.recordId === recordId);
+      if (!record) return;
+
+      await offlineDb.saveBeneficiary({
+        ...record,
+        householdStatus,
+        verificationStatus,
+        updatedAt: new Date().toISOString()
+      });
+
+      if (isReliefBackendConfigured) {
+        await reliefApi.updateHouseholdStatus(recordId, householdStatus, verificationStatus);
+      }
+
+      await get().loadBeneficiariesFromDB();
     },
 
     verifyRecordIntegrity: async (recordId: string) => {
@@ -362,6 +415,7 @@ export const useFieldWorkerStore = create<FieldWorkerState>((set, get) => {
     resetTestDatabase: async () => {
       await offlineDb.clearAll();
       set({ beneficiaries: [], duplicateAlert: null });
+        set({ beneficiaries: [], visibleBeneficiaries: [], duplicateAlert: null });
       get().addLog('INDEXED_DB', 'IndexedDB tables cleared for fresh demonstration.', 'info');
     }
   };

@@ -1,6 +1,7 @@
 // Resilient IndexedDB Offline Storage Engine for Remote Flood Relief Operations
 
 import { TamperProofBlock } from './crypto';
+import { HouseholdStatus, ReliefOrganizationType, VerificationStatus } from '../types/relief';
 
 export interface OfflineBeneficiaryRecord {
   recordId: string;
@@ -41,6 +42,13 @@ export interface OfflineBeneficiaryRecord {
   syncStatus: 'synced' | 'pending_cloud_sync' | 'p2p_mesh_replicated';
   createdAt: string;
   updatedAt: string;
+
+  organizationType?: ReliefOrganizationType;
+  organizationId?: string;
+  teamId?: string;
+  areaId?: string;
+  householdStatus?: HouseholdStatus;
+  verificationStatus?: VerificationStatus;
 }
 
 const DB_NAME = 'FloodAidsFieldDB_v1';

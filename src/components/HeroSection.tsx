@@ -6,9 +6,10 @@ import { useImageStore } from '../store/imageStore';
 interface HeroSectionProps {
   onOpenDonate: (amount?: number) => void;
   onOpenAidRequest: () => void;
+  showDonationActions?: boolean;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenDonate, onOpenAidRequest }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenDonate, onOpenAidRequest, showDonationActions = true }) => {
   const { language, t } = useLanguageStore();
   const isUr = language === 'ur';
 
@@ -79,7 +80,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenDonate, onOpenAi
             </div>
 
             {/* Interactive Giving & Intake Hub in PKR */}
-            <div className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl hairline-box shadow-xs space-y-4">
+            <div className={`${showDonationActions ? '' : 'hidden'} bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-2xl hairline-box shadow-xs space-y-4`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-stone-700">
                   {t.hero.packageTitle}

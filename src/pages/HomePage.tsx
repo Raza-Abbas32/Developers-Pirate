@@ -20,12 +20,14 @@ interface HomePageProps {
   onNavigate: (page: string) => void;
   onOpenDonate: (amount?: number) => void;
   onOpenAidRequest: () => void;
+  showDonationActions?: boolean;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
   onNavigate,
   onOpenDonate,
-  onOpenAidRequest
+  onOpenAidRequest,
+  showDonationActions = true
 }) => {
   const criticalZones = RELIEF_ZONES.slice(0, 3);
   const featuredStory = FAMILY_STORIES[0];
@@ -37,6 +39,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       <HeroSection
         onOpenDonate={onOpenDonate}
         onOpenAidRequest={onOpenAidRequest}
+        showDonationActions={showDonationActions}
       />
 
       {/* 2. Core Logical Engine Teaser: Field Worker App & Anti-Duplication */}
@@ -171,12 +174,12 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <span className="text-[11px] text-stone-500 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-stone-400" /> {model.timeToDeploy}
                 </span>
-                <button
+                {showDonationActions && <button
                   onClick={() => onOpenDonate(model.costPKR)}
                   className="text-xs font-semibold text-[#0F3A5D] hover:underline cursor-pointer"
                 >
                   Sponsor Unit →
-                </button>
+                </button>}
               </div>
             </div>
           ))}
@@ -272,12 +275,12 @@ export const HomePage: React.FC<HomePageProps> = ({
             >
               Inspect Public Ledger
             </button>
-            <button
+            {showDonationActions && <button
               onClick={() => onOpenDonate()}
               className="px-5 py-2.5 text-xs font-semibold text-[#0F3A5D] bg-white hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
             >
               Donate in PKR
-            </button>
+            </button>}
           </div>
         </div>
       </section>
